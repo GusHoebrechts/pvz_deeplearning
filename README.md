@@ -21,7 +21,10 @@ pip install -e ./gym-pvz
 
 3. **Install the RL toolchain:**
 
-pip install stable-baselines3 sb3-contrib wandb
+pip install gymnasium stable-baselines3 sb3-contrib wandb
+
+`pygame-ce` (which provides the `pygame` import) is installed as a dependency
+of `pvz_core` and is used by `watch.py` to replay the recorded game frames.
 
 4. **Test the environment:**
 

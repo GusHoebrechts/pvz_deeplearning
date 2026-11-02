@@ -14,11 +14,11 @@ def main():
     os.makedirs(model_dir, exist_ok=True)
 
     print("Initializing environment...")
-    raw_env = gym.make('gym_pvz:pvz-env-v2')
+    raw_env = gym.make("pvz-env-v2")
     env = PvzMaskWrapper(raw_env)
 
     # Evaluation environment (runs in parallel to test greedy performance)
-    eval_raw_env = gym.make('gym_pvz:pvz-env-v2')
+    eval_raw_env = gym.make("pvz-env-v2")
     eval_env = PvzMaskWrapper(eval_raw_env)
 
     # Automatically save the best model during training

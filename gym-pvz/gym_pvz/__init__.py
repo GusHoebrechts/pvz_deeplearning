@@ -11,7 +11,7 @@ register(
 )
 
 register(
-    id='pvz-env-v01',
+    id='pvz-env-legacy-v1',
     entry_point='gym_pvz.envs:PVZEnv_V01'
 )
 

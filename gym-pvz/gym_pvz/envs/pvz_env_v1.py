@@ -1,23 +1,25 @@
 import gymnasium as gym
-from gymnasium.spaces import MultiDiscrete, MultiBinary, Tuple, Discrete
+from gymnasium.spaces import Box, Discrete
 from pvz import Scene, BasicZombieSpawner, Move, config, Sunflower, Peashooter, Wallnut
 import numpy as np
 
-MAX_ZOMBIE_PER_CELL = 10
-MAX_SUN = 10000
-
 class PVZEnv_V1(gym.Env):
-    metadata = {'render.modes': ['human']}
+    metadata = {"render_modes": ["human"]}
 
-    def __init__(self):
+    def __init__(self, render_mode=None):
+        if render_mode not in (None, "human"):
+            raise ValueError(f"Unsupported render mode: {render_mode}")
+        self.render_mode = render_mode
         self.plant_deck = {"sunflower": Sunflower, "peashooter": Peashooter, "wall-nut": Wallnut}
         
         self.action_space = Discrete(len(self.plant_deck) * config.N_LANES * config.LANE_LENGTH + 1)
-        # self.action_space = MultiDiscrete([len(self.plant_deck), config.N_LANES, config.LANE_LENGTH]) # plant, lane, pos
-        self.observation_space = Tuple([MultiDiscrete([len(self.plant_deck)+1] * (config.N_LANES * config.LANE_LENGTH)), 
-                                        MultiDiscrete([MAX_ZOMBIE_PER_CELL+1] * (config.N_LANES * config.LANE_LENGTH)),
-                                        Discrete(MAX_SUN),
-                                        MultiBinary(len(self.plant_deck))]) # Action available
+        total_length = 2 * config.N_LANES * config.LANE_LENGTH + len(self.plant_deck) + 1
+        self.observation_space = Box(
+            low=0,
+            high=np.iinfo(np.int64).max,
+            shape=(total_length,),
+            dtype=np.int64,
+        )
 
         "Which plant on the cell, is the lane attacked, is there a mower on the lane"
         self._plant_names = [plant_name for plant_name in self.plant_deck]
@@ -36,7 +38,7 @@ class PVZEnv_V1(gym.Env):
 
         Returns
         -------
-        ob, reward, episode_over, info : tuple
+        ob, reward, terminated, truncated, info : tuple
             ob (object) :
                 an environment-specific object representing your observation of
                 the environment.
@@ -60,13 +62,13 @@ class PVZEnv_V1(gym.Env):
         self._take_action(action)
         self._scene.step() #Minimum one step
         reward = self._scene.score
-        while(not self._scene.move_available()):
+        while self._scene.lives > 0 and not self._scene.move_available():
             self._scene.step()
             reward += self._scene.score
         ob = self._get_obs()
-        episode_over = self._scene.lives <= 0
+        terminated = self._scene.lives <= 0
         self._reward = reward
-        return ob, reward, episode_over, {}
+        return ob, reward, terminated, False, {}
     
     def _get_obs(self):
         obs_grid = np.zeros(config.N_LANES * config.LANE_LENGTH, dtype=int)
@@ -80,13 +82,15 @@ class PVZEnv_V1(gym.Env):
         return  np.concatenate([obs_grid, zombie_grid, [self._scene.sun], action_available])
             
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         self._scene = Scene(self.plant_deck, BasicZombieSpawner())
-        return self._get_obs()
+        return self._get_obs(), {}
 
-    def render(self, mode='human'):
-        print(self._scene)
-        print("Score since last action: " + str(self._reward))
+    def render(self):
+        if self.render_mode == "human":
+            print(self._scene)
+            print("Score since last action: " + str(self._reward))
 
     def close(self):
         pass

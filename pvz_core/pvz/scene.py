@@ -110,6 +110,9 @@ class Scene:
             info["plants"][plant.lane].append((plant.__class__.__name__, plant.pos))
         return info
 
+    def get_render_info(self):
+        return self._render_info
+
     def move_available(self): # Return true if a player can make a move
         if not self.grid.is_full():
             for plant_name in self.plant_deck:

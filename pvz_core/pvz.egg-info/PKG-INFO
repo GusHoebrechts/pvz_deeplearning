@@ -1,3 +1,5 @@
 Metadata-Version: 2.4
 Name: pvz
 Version: 0.0.1
+Requires-Dist: pygame-ce
+Dynamic: requires-dist

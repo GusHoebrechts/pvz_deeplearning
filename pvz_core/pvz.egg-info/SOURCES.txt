@@ -1,12 +1,14 @@
 setup.py
 pvz/__init__.py
 pvz/config.py
+pvz/display.py
 pvz/grid.py
 pvz/move.py
 pvz/scene.py
 pvz.egg-info/PKG-INFO
 pvz.egg-info/SOURCES.txt
 pvz.egg-info/dependency_links.txt
+pvz.egg-info/requires.txt
 pvz.egg-info/top_level.txt
 pvz/entities/entity.py
 pvz/entities/plants/peashooter.py

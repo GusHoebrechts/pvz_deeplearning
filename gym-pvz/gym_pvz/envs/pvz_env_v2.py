@@ -1,16 +1,17 @@
 import gymnasium as gym
-from gymnasium.spaces import MultiDiscrete, MultiBinary, Tuple, Discrete,Box
+from gymnasium.spaces import Box, Discrete
 from pvz import Scene, WaveZombieSpawner, Move, config, Sunflower, Peashooter, Wallnut, Potatomine
 import numpy as np
 
-MAX_ZOMBIE_HP = 10000
 MAX_SUN = 10000
-MAX_COOLDOWN = 20 # Potatomine/Wallnut
 
 class PVZEnv_V2(gym.Env):
-    metadata = {'render.modes': ['human']}
+    metadata = {"render_modes": ["human"]}
 
-    def __init__(self):
+    def __init__(self, render_mode=None):
+        if render_mode not in (None, "human"):
+            raise ValueError(f"Unsupported render mode: {render_mode}")
+        self.render_mode = render_mode
         self.plant_deck = {"sunflower": Sunflower, "peashooter": Peashooter, "wall-nut": Wallnut, "potatomine": Potatomine}
         
         self.action_space = Discrete(len(self.plant_deck) * config.N_LANES * config.LANE_LENGTH + 1)
@@ -18,7 +19,7 @@ class PVZEnv_V2(gym.Env):
         total_length = (config.N_LANES * config.LANE_LENGTH * 2) + 1 + len(self.plant_deck)
         self.observation_space = Box(
             low=0, 
-            high=np.inf, 
+            high=np.finfo(np.float32).max,
             shape=(total_length,), 
             dtype=np.float32 # Or np.int32 if your environment returns integers
         )
@@ -85,10 +86,12 @@ class PVZEnv_V2(gym.Env):
             zombie_grid[zombie.lane * config.LANE_LENGTH + zombie.pos] += zombie.hp
         action_available = np.array([self._scene.plant_cooldowns[plant_name]<=0 for plant_name in self.plant_deck])
         action_available *= np.array([self._scene.sun >= self.plant_deck[plant_name].COST for plant_name in self.plant_deck])
-        return  np.concatenate([obs_grid, zombie_grid, [min(self._scene.sun, MAX_SUN)], action_available])
+        return np.concatenate(
+            [obs_grid, zombie_grid, [min(self._scene.sun, MAX_SUN)], action_available]
+        ).astype(np.float32)
             
 
-    def reset(self,seed = None, options = None):
+    def reset(self, *, seed=None, options=None):
         super().reset(seed=seed) # Initialize the RNG
         self._scene = Scene(self.plant_deck, WaveZombieSpawner())
         observation = self._get_obs()
@@ -96,9 +99,13 @@ class PVZEnv_V2(gym.Env):
         return observation, info
 
     
-    def render(self, mode='human'):
-        print(self._scene)
-        print("Score since last action: " + str(self._reward))
+    def render(self):
+        if self.render_mode == "human":
+            print(self._scene)
+            print("Score since last action: " + str(self._reward))
+
+    def get_render_info(self):
+        return self._scene.get_render_info()
 
     def close(self):
         pass

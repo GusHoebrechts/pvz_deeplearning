@@ -2,7 +2,7 @@ import gymnasium as gym
 import gym_pvz
 
 # Initialize the environment
-env = gym.make('gym_pvz:pvz-env-v2')
+env = gym.make("pvz-env-v2")
 
 # Test the reset
 obs, info = env.reset()
