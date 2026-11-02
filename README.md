@@ -28,7 +28,7 @@ of `pvz_core` and is used by `watch.py` to replay the recorded game frames.
 
 4. **Test the environment:**
 
-python train.py
+python test.py
 
 Credits
 The core game engine and the initial environment framework were originally built by inf581-pvz-anonymous. We have heavily refactored the environment to support the modern gymnasium API and are implementing entirely new agents using sb3-contrib and supercomputer batch processing.
