@@ -13,13 +13,13 @@ This project trains Reinforcement Learning agents to play a Plants vs. Zombies c
    git clone <your-repo-link>
    cd <your-repo-folder>
 Install the game engine and environment:
-Install both local libraries in editable mode so any changes to the game engine take effect immediately:
+2. **Install both local libraries in editable mode so any changes to the game engine take effect immediately:**
 
 pip install -e ./pvz_core
 pip install -e ./gym-pvz
-Install the RL toolchain:
+3. **Install the RL toolchain:**
 
 pip install stable-baselines3 sb3-contrib wandb
-Test the environment:
+4. **Test the environment:**
 
 python train.py
