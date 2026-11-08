@@ -93,7 +93,8 @@ class PVZEnv_V2(gym.Env):
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed) # Initialize the RNG
-        self._scene = Scene(self.plant_deck, WaveZombieSpawner())
+        spawner_seed = int(self.np_random.integers(0, np.iinfo(np.uint32).max))
+        self._scene = Scene(self.plant_deck, WaveZombieSpawner(seed=spawner_seed))
         observation = self._get_obs()
         info = {} # Return an empty dictionary if you have no info to pass
         return observation, info

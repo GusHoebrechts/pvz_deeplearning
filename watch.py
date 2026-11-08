@@ -11,9 +11,9 @@ ROOT_DIR = Path(__file__).resolve().parent
 
 
 def main():
-    model_path = ROOT_DIR / "saved_models" / "best_model.zip"
+    model_path = ROOT_DIR / "saved_models" / "100_epoch_200_000_timestep.zip"
     if not model_path.exists():
-        model_path = ROOT_DIR / "saved_models" / "maskable_ppo_pvz_final.zip"
+        model_path = ROOT_DIR / "saved_models" / "100_epoch_200_000_timestep.zip"
 
     if not model_path.exists():
         raise FileNotFoundError(

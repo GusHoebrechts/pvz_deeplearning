@@ -1,6 +1,6 @@
 FPS = 2
 
-MAX_FRAMES=400
+MAX_FRAMES = 600
 
 N_LANES = 5 # Height
 LANE_LENGTH = 9 # Width

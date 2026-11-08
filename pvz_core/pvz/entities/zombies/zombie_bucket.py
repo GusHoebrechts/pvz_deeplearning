@@ -27,5 +27,7 @@ class Zombie_bucket(Zombie):
             zombie = Zombie(self.lane,self.pos)
             zombie.hp = self.hp
             zombie._offset = self._offset
+            if hasattr(self, "_wave_id"):
+                zombie._wave_id = self._wave_id
             scene.add_zombie(zombie)
             self.hp=0
