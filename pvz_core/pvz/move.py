@@ -13,17 +13,29 @@ class Move:
         self.lane = lane
         self.pos = pos
 
-    def is_valid(self, scene):
+    def is_valid(self, scene, replace=False):
         assert (self.plant_name in scene.plant_deck) # Else the doesn't even exists
         
         valid = True
         valid &= scene.plant_cooldowns[self.plant_name] <= 0 # Cooldown refreshed
-        valid &= scene.grid.is_empty(self.lane, self.pos) # Cell is empty of all plants
+        valid &= replace or scene.grid.is_empty(self.lane, self.pos)
+        valid &= not any(
+            plant.lane == self.lane
+            and plant.pos == self.pos
+            and plant.__class__ is scene.plant_deck[self.plant_name]
+            and plant
+            for plant in scene.plants
+        )
         valid &= scene.sun >= scene.plant_deck[self.plant_name].COST # Enough sun to buy
 
         return valid
 
-    def apply_move(self, scene):
+    def apply_move(self, scene, replace=False):
+        if replace:
+            scene.plants[:] = [
+                plant for plant in scene.plants
+                if (plant.lane, plant.pos) != (self.lane, self.pos)
+            ]
         scene.plants.append(scene.plant_deck[self.plant_name](self.lane, self.pos))
         scene.grid.add_obj(self.lane, self.pos)
         scene.plant_cooldowns[self.plant_name] = scene.plant_deck[self.plant_name].COOLDOWN * config.FPS - 1 # Reset cooldown

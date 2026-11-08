@@ -38,7 +38,11 @@ class Zombie(Entity):
                     break
 
     def attack(self, plant):
+        if not plant:
+            return
         plant.hp -= self._attack
+        if not plant:
+            plant._killed_by_zombie = True
     
     def get_offset(self):
         return self._offset/self._cell_length

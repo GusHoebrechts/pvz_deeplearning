@@ -62,8 +62,8 @@ class PVZEnv_V2(gym.Env):
                  use this for learning.
         """
         
-        self._take_action(action)
-        self._scene.step() #Minimum one step
+        action_reward = self._take_action(action)
+        self._scene.step(additional_reward=action_reward) #Minimum one step
         reward = self._scene.score
         episode_over = self._scene._chrono > config.MAX_FRAMES
         while((not self._scene.move_available()) and (not episode_over)):
@@ -120,20 +120,44 @@ class PVZEnv_V2(gym.Env):
             pos = a // config.N_LANES
             lane = a - pos * config.N_LANES
             move = Move(self._plant_names[no_plant], lane, pos)
-            if move.is_valid(self._scene):
-                move.apply_move(self._scene)
+            if move.is_valid(self._scene, replace=True):
+                removed_plants = sum(
+                    plant.lane == lane and plant.pos == pos and bool(plant)
+                    for plant in self._scene.plants
+                )
+                move.apply_move(self._scene, replace=True)
+                return -config.PLANT_REPLACEMENT_PENALTY * removed_plants
             # else:
             #     print("made a wrong move??")
             #     input()
+        return 0
 
     def mask_available_actions(self):
-        empty_cells, available_plants = self._scene.get_available_moves()
+        available_plants = [
+            self.plant_deck[name]
+            for name in self.plant_deck
+            if (
+                self._scene.plant_cooldowns[name] <= 0
+                and self._scene.sun >= self.plant_deck[name].COST
+            )
+        ]
         mask = np.zeros(self.action_space.n, dtype=bool)
         mask[0] = True
-        empty_cells = (empty_cells[0] + config.N_LANES * empty_cells[1]) * len(self.plant_deck)
-        for plant in available_plants:
-            idx = empty_cells + self._plant_no[plant.__name__] + 1
-            mask[idx] = True
+        for pos in range(config.LANE_LENGTH):
+            for lane in range(config.N_LANES):
+                cell_offset = len(self.plant_deck) * (
+                    lane + config.N_LANES * pos
+                )
+                for plant_name in self.plant_deck:
+                    plant = self.plant_deck[plant_name]
+                    if plant not in available_plants:
+                        continue
+                    if not Move(plant_name, lane, pos).is_valid(
+                        self._scene, replace=True
+                    ):
+                        continue
+                    plant_index = self._plant_no[plant.__name__]
+                    mask[cell_offset + plant_index + 1] = True
         return mask
 
     def num_observations(self):

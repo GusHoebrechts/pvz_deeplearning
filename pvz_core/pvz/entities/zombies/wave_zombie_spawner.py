@@ -6,10 +6,10 @@ from .zombie_flag import Zombie_flag
 from ... import config
 import random
 
-WAVE_TIMEOUT_SECONDS = 60
+WAVE_TIMEOUT_SECONDS = 75
 FIRST_WAVE_DELAY_SECONDS = 15
 MIN_WAVE_INTERVAL_SECONDS = 20
-POINTS_PER_WAVE = 1
+POINTS_PER_WAVE = 0
 POINTS_ADDED_PER_WAVE = 2
 ZOMBIE_POINTS = {
     Zombie: 1,
@@ -49,8 +49,12 @@ class WaveZombieSpawner(ZombieSpawner):
         return wave_index, zombies
 
     def _spawn_planned_wave(self, scene):
+        if self._active_wave_id is not None:
+            scene.wave_survived()
+
         wave_id, planned_zombies = self._planned_wave
-        wave_zombies = [Zombie_flag(0)]
+        flag_lane = self._rng.randrange(config.N_LANES)
+        wave_zombies = [Zombie_flag(flag_lane)]
         wave_zombies.extend(
             zombie_type(lane) for zombie_type, lane in planned_zombies
         )

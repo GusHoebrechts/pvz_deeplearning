@@ -25,31 +25,50 @@ class Scene:
         self._chrono = 0
 
         self.score = 0 # score
+        self.total_score = 0
         self.lives = 1 # hp of the player (lives = 0: lossed battle)
+        self._death_penalty_applied = False
 
         self._render_info = [{"zombies": [[] for _ in range(config.N_LANES)], "plants": [[] for _ in range(config.N_LANES)], 
                             "projectiles": [[] for _ in range(config.N_LANES)], "sun": self.sun,
                             "score": self.score, "cooldowns": {name: 0 for name in self.plant_cooldowns}, "time":0}]
 
 
-    def step(self):
+    def step(self, additional_reward=0):
+        lives_before_step = self.lives
+        zombie_entry_penalty = 0
         for plant in self.plants:
             plant.step(self)
         for zombie in self.zombies:
-            zombie.step(self)
+            if zombie:
+                previous_pos = zombie.pos
+                zombie.step(self)
+                if zombie.pos < previous_pos:
+                    zombie_entry_penalty += config.ZOMBIE_DANGER_COLUMN_PENALTIES.get(
+                        zombie.pos, 0
+                    )
         for projectile in self.projectiles:
             projectile.step(self)
         
         self._chrono += 1
-        self.score = config.SURVIVAL * int((self._chrono + 1) % (config.FPS * config.SURVIVAL_STEP) == 0) + self.grid._mowers.sum()
+        self.score = additional_reward + self.grid._mowers.sum() - zombie_entry_penalty
 
         self._zombie_spawner.spawn(self)
         self._remove_dead_objects()
+        lives_lost = lives_before_step - self.lives
+        if lives_lost > 0 and not self._death_penalty_applied:
+            self.score -= config.DEATH_PENALTY
+            self._death_penalty_applied = True
         self._timed_events()
 
         self._timer -= 1
 
+        self.total_score += self.score
         self._render_info.append(self._render_get_info())
+
+    def wave_survived(self):
+        if self.lives > 0:
+            self.score += config.SURVIVAL
 
     def add_zombie(self, zombie):
         self.zombies.append(zombie)
@@ -71,6 +90,8 @@ class Scene:
                 self.score += config.SCORE_ALIVE_PLANT
             else:
                 self.grid.remove_obj(plant.lane, plant.pos)
+                if plant._killed_by_zombie:
+                    self.score -= config.PLANT_DEATH_PENALTY
         self.plants = alive_plants
 
         alive_zombies = []
@@ -99,7 +120,7 @@ class Scene:
     def _render_get_info(self):
         info = {"zombies": [[] for _ in range(config.N_LANES)], "plants": [[] for _ in range(config.N_LANES)], 
                 "projectiles": [[] for _ in range(config.N_LANES)], "sun": self.sun,
-                "score": self.score, "cooldowns": {name: int(self.plant_cooldowns[name]/config.FPS)+1 for name in self.plant_cooldowns},
+                "score": self.total_score, "cooldowns": {name: int(self.plant_cooldowns[name]/config.FPS)+1 for name in self.plant_cooldowns},
                 "time": int(self._chrono/config.FPS)}
         for zombie in self.zombies:
             info["zombies"][zombie.lane].append((zombie.__class__.__name__, zombie.pos, zombie.get_offset()))
