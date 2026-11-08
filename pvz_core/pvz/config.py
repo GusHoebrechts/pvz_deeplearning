@@ -1,27 +1,34 @@
+#simulations
 FPS = 2
-
 MAX_FRAMES = 600
 
+#map layout
 N_LANES = 5 # Height
 LANE_LENGTH = 9 # Width
 
+#currency
 INITIAL_SUN_AMOUNT = 50
-
-# Sun that falls from the sky
-NATURAL_SUN_PRODUCTION = 25
+NATURAL_SUN_PRODUCTION = 25 # Sun that falls from the sky
 NATURAL_SUN_PRODUCTION_COOLDOWN = 10
 
 # Mowers
 MOWERS = False
 
 # Score values
+#Positive scores by killing & surviving
 SURVIVAL = 30
+SCORE_ZOMBIE = 120
+SCORE_ZOMBIE_CONE = 40
+SCORE_ZOMBIE_BUCKET = 120
+SCORE_ZOMBIE_FLAG = 120
 SCORE_ALIVE_PLANT = 0
 SCORE_ALIVE_MOWER = 0
+
+#Negative scores by losing plants & zombies advancing on the map
 DEATH_PENALTY = 1200
-PLANT_DEATH_PENALTY = 10
-PLANT_REPLACEMENT_PENALTY = 15
-ZOMBIE_DANGER_COLUMN_PENALTIES = {2: 1, 1: 2, 0: 3}
+PLANT_DEATH_PENALTY = 15
+PLANT_REPLACEMENT_PENALTY = 30
+ZOMBIE_DANGER_COLUMN_PENALTIES = {2: 5, 1: 25, 0: 100}
 
 # Score 10/10
 # Scorebis : 10/20

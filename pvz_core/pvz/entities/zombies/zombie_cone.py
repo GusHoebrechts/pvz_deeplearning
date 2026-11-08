@@ -6,7 +6,7 @@ from .zombie import Zombie
 class Zombie_cone(Zombie):
 
     MAX_HP = 560  
-    SCORE = 40 # It will add 30 for the normal zombie kill
+    SCORE = config.SCORE_ZOMBIE_CONE
 
     def step(self, scene):
         if scene.grid.is_empty(self.lane, self.pos):

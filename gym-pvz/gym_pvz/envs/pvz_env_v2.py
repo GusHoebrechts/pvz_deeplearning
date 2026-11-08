@@ -16,7 +16,8 @@ class PVZEnv_V2(gym.Env):
         
         self.action_space = Discrete(len(self.plant_deck) * config.N_LANES * config.LANE_LENGTH + 1)
         # self.action_space = MultiDiscrete([len(self.plant_deck), config.N_LANES, config.LANE_LENGTH]) # plant, lane, pos
-        total_length = (config.N_LANES * config.LANE_LENGTH * 2) + 1 + len(self.plant_deck)
+        grid_size = config.N_LANES * config.LANE_LENGTH
+        total_length = (grid_size * 3) + 1 + len(self.plant_deck)
         self.observation_space = Box(
             low=0, 
             high=np.finfo(np.float32).max,
@@ -78,16 +79,26 @@ class PVZEnv_V2(gym.Env):
         return ob, reward, terminated, truncated, {}
     
     def _get_obs(self):
-        obs_grid = np.zeros(config.N_LANES * config.LANE_LENGTH, dtype=int)
-        zombie_grid = np.zeros(config.N_LANES * config.LANE_LENGTH, dtype=int)
+        grid_size = config.N_LANES * config.LANE_LENGTH
+        obs_grid = np.zeros(grid_size, dtype=int)
+        plant_hp_grid = np.zeros(grid_size, dtype=int)
+        zombie_grid = np.zeros(grid_size, dtype=int)
         for plant in self._scene.plants:
-            obs_grid[plant.lane * config.LANE_LENGTH + plant.pos] = self._plant_no[plant.__class__.__name__] + 1
+            cell_index = plant.lane * config.LANE_LENGTH + plant.pos
+            obs_grid[cell_index] = self._plant_no[plant.__class__.__name__] + 1
+            plant_hp_grid[cell_index] = plant.hp
         for zombie in self._scene.zombies:
             zombie_grid[zombie.lane * config.LANE_LENGTH + zombie.pos] += zombie.hp
         action_available = np.array([self._scene.plant_cooldowns[plant_name]<=0 for plant_name in self.plant_deck])
         action_available *= np.array([self._scene.sun >= self.plant_deck[plant_name].COST for plant_name in self.plant_deck])
         return np.concatenate(
-            [obs_grid, zombie_grid, [min(self._scene.sun, MAX_SUN)], action_available]
+            [
+                obs_grid,
+                plant_hp_grid,
+                zombie_grid,
+                [min(self._scene.sun, MAX_SUN)],
+                action_available,
+            ]
         ).astype(np.float32)
             
 
@@ -161,4 +172,4 @@ class PVZEnv_V2(gym.Env):
         return mask
 
     def num_observations(self):
-        return 2 * config.N_LANES * config.LANE_LENGTH + len(self.plant_deck) + 1
+        return 3 * config.N_LANES * config.LANE_LENGTH + len(self.plant_deck) + 1

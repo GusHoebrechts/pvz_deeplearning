@@ -6,7 +6,7 @@ from .zombie import Zombie
 class Zombie_bucket(Zombie):
 
     MAX_HP = 1100
-    SCORE = 120 # It will add 30 for the normal zombie kill
+    SCORE = config.SCORE_ZOMBIE_BUCKET
 
     def step(self, scene):
         if scene.grid.is_empty(self.lane, self.pos):

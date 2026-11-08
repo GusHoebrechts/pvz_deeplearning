@@ -141,7 +141,7 @@ def display_game(render_info):
                 ),
             )
             pygame.display.flip()
-            clock.tick(24)
+            clock.tick(36)
 
         pygame.time.wait(1000)
         return True

@@ -51,7 +51,11 @@ class Scene:
             projectile.step(self)
         
         self._chrono += 1
-        self.score = additional_reward + self.grid._mowers.sum() - zombie_entry_penalty
+        self.score = (
+            additional_reward
+            + config.SCORE_ALIVE_MOWER * self.grid._mowers.sum()
+            - zombie_entry_penalty
+        )
 
         self._zombie_spawner.spawn(self)
         self._remove_dead_objects()

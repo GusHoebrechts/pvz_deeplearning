@@ -39,10 +39,10 @@ def main():
         env=env,
         learning_rate=3e-4,
         n_steps=2048,
-        batch_size=64,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
+        batch_size=64,        #Number of samples per gradient update. Larger batch sizes can stabilize training but require more memory.
+        n_epochs=15,            #how many times to reuse each batch of data for training. More epochs can lead to better performance but also risk overfitting.
+        gamma=0.99,            #How much the agent values future rewards compared with immediate rewards. Values closer to 1 make it plan further ahead
+        gae_lambda=0.95,       #Controls how PPO estimates future advantage (how good an action was), balancing noisy estimates against bias.
         clip_range=0.2,
         ent_coef=0.01,          # Encourages exploration among valid moves
         verbose=1,
@@ -50,7 +50,7 @@ def main():
     )
 
     print("Starting training run...")
-    total_timesteps = 100_000   # Good smoke test on CPU; scale to 1M+ on the supercomputer
+    total_timesteps = 1_000_000   # Good smoke test on CPU; scale to 1M+ on the supercomputer
     model.learn(
         total_timesteps=total_timesteps,
         callback=eval_callback,

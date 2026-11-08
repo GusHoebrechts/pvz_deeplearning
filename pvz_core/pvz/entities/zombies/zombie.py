@@ -7,7 +7,7 @@ class Zombie(Entity):
     MAX_HP = 190  # 190 normally
     WALKING_SPEED = 5 # Speed per square
     ATTACK_SPEED = 100 # Damage per second
-    SCORE = 120
+    SCORE = config.SCORE_ZOMBIE
 
     def __init__(self, lane, pos=config.LANE_LENGTH - 1): # Zombie starts at the very right
         """
