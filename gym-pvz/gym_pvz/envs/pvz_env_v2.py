@@ -16,7 +16,8 @@ class PVZEnv_V2(gym.Env):
         
         self.action_space = Discrete(len(self.plant_deck) * config.N_LANES * config.LANE_LENGTH + 1)
         # self.action_space = MultiDiscrete([len(self.plant_deck), config.N_LANES, config.LANE_LENGTH]) # plant, lane, pos
-        total_length = (config.N_LANES * config.LANE_LENGTH * 2) + 1 + len(self.plant_deck)
+        grid_size = config.N_LANES * config.LANE_LENGTH
+        total_length = (grid_size * 5) + 1 + 2 * len(self.plant_deck)
         self.observation_space = Box(
             low=0, 
             high=np.finfo(np.float32).max,
@@ -62,8 +63,8 @@ class PVZEnv_V2(gym.Env):
                  use this for learning.
         """
         
-        self._take_action(action)
-        self._scene.step() #Minimum one step
+        action_reward = self._take_action(action)
+        self._scene.step(additional_reward=action_reward) #Minimum one step
         reward = self._scene.score
         episode_over = self._scene._chrono > config.MAX_FRAMES
         while((not self._scene.move_available()) and (not episode_over)):
@@ -78,22 +79,56 @@ class PVZEnv_V2(gym.Env):
         return ob, reward, terminated, truncated, {}
     
     def _get_obs(self):
-        obs_grid = np.zeros(config.N_LANES * config.LANE_LENGTH, dtype=int)
-        zombie_grid = np.zeros(config.N_LANES * config.LANE_LENGTH, dtype=int)
+        grid_size = config.N_LANES * config.LANE_LENGTH
+        obs_grid = np.zeros(grid_size, dtype=int)
+        plant_hp_grid = np.zeros(grid_size, dtype=int)
+        zombie_grid = np.zeros(grid_size, dtype=int)
+        zombie_count_grid = np.zeros(grid_size, dtype=int)
+        potato_mine_arming_grid = np.zeros(grid_size, dtype=np.float32)
         for plant in self._scene.plants:
-            obs_grid[plant.lane * config.LANE_LENGTH + plant.pos] = self._plant_no[plant.__class__.__name__] + 1
+            cell_index = plant.lane * config.LANE_LENGTH + plant.pos
+            obs_grid[cell_index] = self._plant_no[plant.__class__.__name__] + 1
+            plant_hp_grid[cell_index] = plant.hp
+            if isinstance(plant, Potatomine):
+                max_arming_cooldown = max(
+                    Potatomine.ATTACK_COOLDOWN * config.FPS - 1, 1
+                )
+                potato_mine_arming_grid[cell_index] = 1 - np.clip(
+                    plant.attack_cooldown / max_arming_cooldown, 0, 1
+                )
         for zombie in self._scene.zombies:
-            zombie_grid[zombie.lane * config.LANE_LENGTH + zombie.pos] += zombie.hp
+            cell_index = zombie.lane * config.LANE_LENGTH + zombie.pos
+            zombie_grid[cell_index] += zombie.hp
+            zombie_count_grid[cell_index] += 1
+        cooldown_remaining = np.array([
+            np.clip(
+                self._scene.plant_cooldowns[plant_name]
+                / max(self.plant_deck[plant_name].COOLDOWN * config.FPS - 1, 1),
+                0,
+                1,
+            )
+            for plant_name in self.plant_deck
+        ])
         action_available = np.array([self._scene.plant_cooldowns[plant_name]<=0 for plant_name in self.plant_deck])
         action_available *= np.array([self._scene.sun >= self.plant_deck[plant_name].COST for plant_name in self.plant_deck])
         return np.concatenate(
-            [obs_grid, zombie_grid, [min(self._scene.sun, MAX_SUN)], action_available]
+            [
+                obs_grid,
+                plant_hp_grid,
+                zombie_grid,
+                zombie_count_grid,
+                potato_mine_arming_grid,
+                [min(self._scene.sun, MAX_SUN)],
+                cooldown_remaining,
+                action_available,
+            ]
         ).astype(np.float32)
             
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed) # Initialize the RNG
-        self._scene = Scene(self.plant_deck, WaveZombieSpawner())
+        spawner_seed = int(self.np_random.integers(0, np.iinfo(np.uint32).max))
+        self._scene = Scene(self.plant_deck, WaveZombieSpawner(seed=spawner_seed))
         observation = self._get_obs()
         info = {} # Return an empty dictionary if you have no info to pass
         return observation, info
@@ -118,22 +153,53 @@ class PVZEnv_V2(gym.Env):
             no_plant = action - len(self.plant_deck) * a
             pos = a // config.N_LANES
             lane = a - pos * config.N_LANES
-            move = Move(self._plant_names[no_plant], lane, pos)
-            if move.is_valid(self._scene):
-                move.apply_move(self._scene)
+            plant_name = self._plant_names[no_plant]
+            move = Move(plant_name, lane, pos)
+            if move.is_valid(self._scene, replace=True):
+                removed_plants = sum(
+                    plant.lane == lane and plant.pos == pos and bool(plant)
+                    for plant in self._scene.plants
+                )
+                move.apply_move(self._scene, replace=True)
+                reward = -config.PLANT_REPLACEMENT_PENALTY * removed_plants
+                if plant_name in ("peashooter", "potatomine") and any(
+                    zombie.lane == lane and bool(zombie)
+                    for zombie in self._scene.zombies
+                ):
+                    reward += config.PLANT_OFFENSIVE_ZOMBIE_BONUS
+                return reward
             # else:
             #     print("made a wrong move??")
             #     input()
+        return 0
 
     def mask_available_actions(self):
-        empty_cells, available_plants = self._scene.get_available_moves()
+        available_plants = [
+            self.plant_deck[name]
+            for name in self.plant_deck
+            if (
+                self._scene.plant_cooldowns[name] <= 0
+                and self._scene.sun >= self.plant_deck[name].COST
+            )
+        ]
         mask = np.zeros(self.action_space.n, dtype=bool)
         mask[0] = True
-        empty_cells = (empty_cells[0] + config.N_LANES * empty_cells[1]) * len(self.plant_deck)
-        for plant in available_plants:
-            idx = empty_cells + self._plant_no[plant.__name__] + 1
-            mask[idx] = True
+        for pos in range(config.LANE_LENGTH):
+            for lane in range(config.N_LANES):
+                cell_offset = len(self.plant_deck) * (
+                    lane + config.N_LANES * pos
+                )
+                for plant_name in self.plant_deck:
+                    plant = self.plant_deck[plant_name]
+                    if plant not in available_plants:
+                        continue
+                    if not Move(plant_name, lane, pos).is_valid(
+                        self._scene, replace=True
+                    ):
+                        continue
+                    plant_index = self._plant_no[plant.__name__]
+                    mask[cell_offset + plant_index + 1] = True
         return mask
 
     def num_observations(self):
-        return 2 * config.N_LANES * config.LANE_LENGTH + len(self.plant_deck) + 1
+        return 5 * config.N_LANES * config.LANE_LENGTH + 2 * len(self.plant_deck) + 1

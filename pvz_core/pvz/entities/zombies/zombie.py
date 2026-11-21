@@ -7,7 +7,7 @@ class Zombie(Entity):
     MAX_HP = 190  # 190 normally
     WALKING_SPEED = 5 # Speed per square
     ATTACK_SPEED = 100 # Damage per second
-    SCORE = 120
+    SCORE = config.SCORE_ZOMBIE
 
     def __init__(self, lane, pos=config.LANE_LENGTH - 1): # Zombie starts at the very right
         """
@@ -16,6 +16,9 @@ class Zombie(Entity):
 
         super().__init__(lane)
         self.pos = pos
+        self._reward_max_hp = self.hp
+        self._reward_damage_taken = 0
+        self._damage_reward_paid = 0
         self._attack = self.ATTACK_SPEED // config.FPS
         self._cell_length = self.WALKING_SPEED * config.FPS # How many frames to pass a cell
         self._offset = self._cell_length - 1 # Offset used to model the displacement of the zombie on its cell
@@ -38,7 +41,11 @@ class Zombie(Entity):
                     break
 
     def attack(self, plant):
+        if not plant:
+            return
         plant.hp -= self._attack
+        if not plant:
+            plant._killed_by_zombie = True
     
     def get_offset(self):
         return self._offset/self._cell_length

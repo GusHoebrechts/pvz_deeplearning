@@ -31,7 +31,7 @@ class Potatomine(Plant):
                     self.used=1
                     for zombie in scene.zombies:
                         if (zombie.pos==self.pos) and (zombie.lane==self.lane):
-                            zombie.hp=0
+                            scene.damage_zombie(zombie, zombie.hp)
                     break
             if(self.used==1):
                 self.hp=0

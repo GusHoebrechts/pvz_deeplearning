@@ -6,7 +6,7 @@ from .zombie import Zombie
 class Zombie_cone(Zombie):
 
     MAX_HP = 560  
-    SCORE = 40 # It will add 30 for the normal zombie kill
+    SCORE = config.SCORE_ZOMBIE_CONE
 
     def step(self, scene):
         if scene.grid.is_empty(self.lane, self.pos):
@@ -26,7 +26,10 @@ class Zombie_cone(Zombie):
         if self.hp<190:
             zombie = Zombie(self.lane,self.pos)
             zombie.hp = self.hp
+            zombie._reward_max_hp = zombie.hp
             zombie._offset = self._offset
+            if hasattr(self, "_wave_id"):
+                zombie._wave_id = self._wave_id
             scene.add_zombie(zombie)
             self.hp=0
     

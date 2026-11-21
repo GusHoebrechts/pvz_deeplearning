@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import gymnasium as gym
@@ -10,16 +11,41 @@ from pvz.display import display_game
 ROOT_DIR = Path(__file__).resolve().parent
 
 
-def main():
-    model_path = ROOT_DIR / "saved_models" / "best_model.zip"
-    if not model_path.exists():
-        model_path = ROOT_DIR / "saved_models" / "maskable_ppo_pvz_final.zip"
+def resolve_model_path(model_dir, model_choice="best"):
+    if model_choice not in ("best", "final"):
+        raise ValueError(f"Unsupported model choice: {model_choice}")
 
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"No model found in {ROOT_DIR / 'saved_models'}. "
-            "Train the model first using train.py."
-        )
+    best_model_path = Path(model_dir) / "best_model.zip"
+    final_model_path = Path(model_dir) / "maskable_ppo_pvz_final.zip"
+
+    if model_choice == "best":
+        if best_model_path.is_file():
+            return best_model_path
+        if final_model_path.is_file():
+            return final_model_path
+    elif final_model_path.is_file():
+        return final_model_path
+
+    raise FileNotFoundError(
+        f"No {model_choice} model found in {model_dir}. "
+        "Train the model first using train.py."
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model",
+        choices=("best", "final"),
+        default="best",
+        help="Choose the best evaluation checkpoint or the final training model.",
+    )
+    args = parser.parse_args()
+
+    model_dir = ROOT_DIR / "saved_models"
+    model_path = resolve_model_path(model_dir, args.model)
+    if args.model == "best" and model_path.name != "best_model.zip":
+        print("Best checkpoint not found; using the final model instead.")
 
     print(f"Loading policy weights from: {model_path}")
     model = MaskablePPO.load(str(model_path))

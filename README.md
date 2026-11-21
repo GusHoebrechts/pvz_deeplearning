@@ -21,7 +21,7 @@ pip install -e ./gym-pvz
 
 3. **Install the RL toolchain:**
 
-pip install gymnasium stable-baselines3 sb3-contrib wandb
+pip install gymnasium stable-baselines3 sb3-contrib wandb tensorboard tqdm rich
 
 `pygame-ce` (which provides the `pygame` import) is installed as a dependency
 of `pvz_core` and is used by `watch.py` to replay the recorded game frames.
@@ -29,6 +29,37 @@ of `pvz_core` and is used by `watch.py` to replay the recorded game frames.
 4. **Test the environment:**
 
 python test.py
+
+## Training
+
+Start training with:
+
+python train.py
+
+The agent observation includes each plant's remaining cooldown as a continuous
+fraction (1 = full cooldown, 0 = ready), in addition to the existing
+ready/affordable indicator. It also exposes each potato mine's arming progress
+per tile (0 = unarmed, 1 = ready to explode), and the zombie count on each tile
+alongside the total zombie HP there. These additions change the observation
+shape, so previously trained models must be retrained.
+
+Configured zombie scores are awarded gradually in proportion to actual HP
+damage, rather than as an additional bonus on death.
+
+During training, press `P` to pause, `R` to resume, or press `Q` followed by
+`Y` to stop without saving a resumable checkpoint. These controls require an
+interactive terminal.
+
+Run `python watch.py` to view the best evaluation checkpoint. Use
+`python watch.py --model final` to view the final training checkpoint instead.
+
+The highest-reward completed training game in each 10,000-timestep window is
+replayed in a rolling four-game Pygame grid. Each tile shows the absolute
+checkpoint timestep, the window it covers, the actual training game number,
+and episode reward. Recordings are displayed in a separate process while
+training continues. The entropy coefficient decays linearly from 0.05 to 0.01
+over the 1,000,000 training timesteps. Close the window or press `Esc` to
+dismiss it.
 
 Credits
 The core game engine and the initial environment framework were originally built by inf581-pvz-anonymous. We have heavily refactored the environment to support the modern gymnasium API and are implementing entirely new agents using sb3-contrib and supercomputer batch processing.

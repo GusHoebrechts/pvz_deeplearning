@@ -17,3 +17,4 @@ class Plant(Entity):
         assert(pos>=0)
         assert(pos<config.LANE_LENGTH)
         self.pos = pos
+        self._killed_by_zombie = False
