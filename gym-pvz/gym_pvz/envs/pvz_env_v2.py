@@ -17,7 +17,7 @@ class PVZEnv_V2(gym.Env):
         self.action_space = Discrete(len(self.plant_deck) * config.N_LANES * config.LANE_LENGTH + 1)
         # self.action_space = MultiDiscrete([len(self.plant_deck), config.N_LANES, config.LANE_LENGTH]) # plant, lane, pos
         grid_size = config.N_LANES * config.LANE_LENGTH
-        total_length = (grid_size * 3) + 1 + 2 * len(self.plant_deck)
+        total_length = (grid_size * 5) + 1 + 2 * len(self.plant_deck)
         self.observation_space = Box(
             low=0, 
             high=np.finfo(np.float32).max,
@@ -83,12 +83,23 @@ class PVZEnv_V2(gym.Env):
         obs_grid = np.zeros(grid_size, dtype=int)
         plant_hp_grid = np.zeros(grid_size, dtype=int)
         zombie_grid = np.zeros(grid_size, dtype=int)
+        zombie_count_grid = np.zeros(grid_size, dtype=int)
+        potato_mine_arming_grid = np.zeros(grid_size, dtype=np.float32)
         for plant in self._scene.plants:
             cell_index = plant.lane * config.LANE_LENGTH + plant.pos
             obs_grid[cell_index] = self._plant_no[plant.__class__.__name__] + 1
             plant_hp_grid[cell_index] = plant.hp
+            if isinstance(plant, Potatomine):
+                max_arming_cooldown = max(
+                    Potatomine.ATTACK_COOLDOWN * config.FPS - 1, 1
+                )
+                potato_mine_arming_grid[cell_index] = 1 - np.clip(
+                    plant.attack_cooldown / max_arming_cooldown, 0, 1
+                )
         for zombie in self._scene.zombies:
-            zombie_grid[zombie.lane * config.LANE_LENGTH + zombie.pos] += zombie.hp
+            cell_index = zombie.lane * config.LANE_LENGTH + zombie.pos
+            zombie_grid[cell_index] += zombie.hp
+            zombie_count_grid[cell_index] += 1
         cooldown_remaining = np.array([
             np.clip(
                 self._scene.plant_cooldowns[plant_name]
@@ -105,6 +116,8 @@ class PVZEnv_V2(gym.Env):
                 obs_grid,
                 plant_hp_grid,
                 zombie_grid,
+                zombie_count_grid,
+                potato_mine_arming_grid,
                 [min(self._scene.sun, MAX_SUN)],
                 cooldown_remaining,
                 action_available,
@@ -189,4 +202,4 @@ class PVZEnv_V2(gym.Env):
         return mask
 
     def num_observations(self):
-        return 3 * config.N_LANES * config.LANE_LENGTH + 2 * len(self.plant_deck) + 1
+        return 5 * config.N_LANES * config.LANE_LENGTH + 2 * len(self.plant_deck) + 1

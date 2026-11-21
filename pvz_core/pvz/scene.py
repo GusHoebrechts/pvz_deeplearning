@@ -26,9 +26,10 @@ class Scene:
 
         self.score = 0 # score
         self.total_score = 0
-        self._damage_reward = 0.0
+        self._damage_reward = 0
         self.lives = 1 # hp of the player (lives = 0: lossed battle)
         self._death_penalty_applied = False
+        self._frame_limit_rewarded = False
 
         self._render_info = [{"zombies": [[] for _ in range(config.N_LANES)], "plants": [[] for _ in range(config.N_LANES)], 
                             "projectiles": [[] for _ in range(config.N_LANES)], "sun": self.sun,
@@ -36,7 +37,7 @@ class Scene:
 
 
     def step(self, additional_reward=0):
-        self._damage_reward = 0.0
+        self._damage_reward = 0
         lives_before_step = self.lives
         zombie_entry_penalty = 0
         for plant in self.plants:
@@ -66,6 +67,13 @@ class Scene:
         if lives_lost > 0 and not self._death_penalty_applied:
             self.score -= config.DEATH_PENALTY
             self._death_penalty_applied = True
+        if (
+            self._chrono > config.MAX_FRAMES
+            and self.lives > 0
+            and not self._frame_limit_rewarded
+        ):
+            self.score += config.SURVIVAL
+            self._frame_limit_rewarded = True
         self._timed_events()
 
         self._timer -= 1
@@ -89,7 +97,14 @@ class Scene:
         reward_max_hp = getattr(zombie, "_reward_max_hp", zombie.MAX_HP)
         zombie.hp -= damage
         if reward_max_hp > 0:
-            self._damage_reward += zombie.SCORE * damage / reward_max_hp
+            zombie._reward_damage_taken += damage
+            reward_total = round(
+                zombie.SCORE
+                * min(zombie._reward_damage_taken, reward_max_hp)
+                / reward_max_hp
+            )
+            self._damage_reward += reward_total - zombie._damage_reward_paid
+            zombie._damage_reward_paid = reward_total
         return damage
 
     def zombie_reach(self, lane):

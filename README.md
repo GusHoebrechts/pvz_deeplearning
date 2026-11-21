@@ -38,18 +38,27 @@ python train.py
 
 The agent observation includes each plant's remaining cooldown as a continuous
 fraction (1 = full cooldown, 0 = ready), in addition to the existing
-ready/affordable indicator. This changes the observation shape, so previously
-trained models must be retrained.
+ready/affordable indicator. It also exposes each potato mine's arming progress
+per tile (0 = unarmed, 1 = ready to explode), and the zombie count on each tile
+alongside the total zombie HP there. These additions change the observation
+shape, so previously trained models must be retrained.
+
+Configured zombie scores are awarded gradually in proportion to actual HP
+damage, rather than as an additional bonus on death.
 
 During training, press `P` to pause, `R` to resume, or press `Q` followed by
 `Y` to stop without saving a resumable checkpoint. These controls require an
 interactive terminal.
 
-Training games selected at timesteps 0, 10,000, 20,000, 30,000, and every
-10,000 timesteps afterward are replayed together in a rolling four-game Pygame
-grid. Each tile shows its checkpoint timestep and actual training game number.
-The recordings are displayed in a separate process while training continues;
-games appear after their episode completes. Close the window or press `Esc` to
+Run `python watch.py` to view the best evaluation checkpoint. Use
+`python watch.py --model final` to view the final training checkpoint instead.
+
+The highest-reward completed training game in each 10,000-timestep window is
+replayed in a rolling four-game Pygame grid. Each tile shows the absolute
+checkpoint timestep, the window it covers, the actual training game number,
+and episode reward. Recordings are displayed in a separate process while
+training continues. The entropy coefficient decays linearly from 0.05 to 0.01
+over the 1,000,000 training timesteps. Close the window or press `Esc` to
 dismiss it.
 
 Credits
