@@ -8,9 +8,9 @@ class Mower(Projectile):
     def __init__(self, lane):
         super().__init__(MOWER_SPEED, lane, 0)
 
-    def _attack_zombies(self, zombies): # Kills all zombies
+    def _attack_zombies(self, zombies, scene): # Kills all zombies
         for zombie in zombies:
-            zombie.hp = 0
+            scene.damage_zombie(zombie, zombie.hp)
     
     def _render(self):
         return True

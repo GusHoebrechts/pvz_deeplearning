@@ -141,7 +141,7 @@ def display_game(render_info):
                 ),
             )
             pygame.display.flip()
-            clock.tick(36)
+            clock.tick(64)
 
         pygame.time.wait(1000)
         return True
@@ -157,3 +157,177 @@ def _load_image(images, name):
         image = pygame.image.load(str(image_path)).convert_alpha()
         images[name] = pygame.transform.smoothscale(image, (72, 72))
     return images[name]
+
+
+def display_games_grid(games, columns=2, labels=None):
+    if labels is None:
+        labels = [f"Game {index + 1}" for index in range(len(games))]
+    if len(labels) != len(games):
+        raise ValueError("labels must have one entry per game")
+
+    labeled_games = [
+        (game, label) for game, label in zip(games, labels) if game
+    ]
+    if not labeled_games:
+        return True
+    if columns < 1:
+        raise ValueError("columns must be at least 1")
+
+    games, labels = zip(*labeled_games)
+    rows = (len(games) + columns - 1) // columns
+    grid_width = WINDOW_WIDTH * columns
+    grid_height = WINDOW_HEIGHT * rows
+    frame_count = max(len(game) for game in games)
+
+    pygame.init()
+    display_info = pygame.display.Info()
+    window_size = (
+        min(grid_width, max(display_info.current_w, 320)),
+        min(grid_height, max(display_info.current_h, 240)),
+    )
+    screen = pygame.display.set_mode(
+        window_size, pygame.RESIZABLE
+    )
+    canvas = pygame.Surface((grid_width, grid_height))
+    pygame.display.set_caption("Plants vs. Zombies - Training checkpoint games")
+    clock = pygame.time.Clock()
+    font = pygame.font.Font(None, 26)
+    small_font = pygame.font.Font(None, 21)
+    images = {}
+
+    try:
+        for frame_index in range(frame_count):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or (
+                    event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                ):
+                    return False
+                if event.type == pygame.VIDEORESIZE:
+                    screen = pygame.display.set_mode(
+                        (max(event.w, 320), max(event.h, 240)),
+                        pygame.RESIZABLE,
+                    )
+
+            canvas.fill((20, 20, 20))
+            for game_index, game in enumerate(games):
+                frame = game[min(frame_index, len(game) - 1)]
+                offset_x = (game_index % columns) * WINDOW_WIDTH
+                offset_y = (game_index // columns) * WINDOW_HEIGHT
+                _draw_grid_game(
+                    canvas,
+                    frame,
+                    offset_x,
+                    offset_y,
+                    labels[game_index],
+                    images,
+                    font,
+                    small_font,
+                )
+
+            scale = min(
+                screen.get_width() / grid_width,
+                screen.get_height() / grid_height,
+            )
+            scaled_size = (
+                round(grid_width * scale),
+                round(grid_height * scale),
+            )
+            frame_surface = pygame.transform.smoothscale(canvas, scaled_size)
+            screen.fill((20, 20, 20))
+            screen.blit(
+                frame_surface,
+                (
+                    (screen.get_width() - scaled_size[0]) // 2,
+                    (screen.get_height() - scaled_size[1]) // 2,
+                ),
+            )
+            pygame.display.flip()
+            clock.tick(64)
+
+        pygame.time.wait(1000)
+        return True
+    finally:
+        pygame.quit()
+
+
+def _draw_grid_game(canvas, frame, offset_x, offset_y, label, images, font, small_font):
+    pygame.draw.rect(
+        canvas, (27, 38, 31), (offset_x, offset_y, WINDOW_WIDTH, HEADER_HEIGHT)
+    )
+    pygame.draw.rect(
+        canvas,
+        (27, 38, 31),
+        (
+            offset_x,
+            offset_y + WINDOW_HEIGHT - FOOTER_HEIGHT,
+            WINDOW_WIDTH,
+            FOOTER_HEIGHT,
+        ),
+    )
+    header = (
+        f"{label}   Sun: {frame['sun']}   "
+        f"Score: {frame['score']}   Time: {frame['time']}s"
+    )
+    canvas.blit(
+        font.render(header, True, (245, 245, 220)),
+        (offset_x + BOARD_X, offset_y + 22),
+    )
+
+    for lane in range(config.N_LANES):
+        for pos in range(config.LANE_LENGTH):
+            color = (104, 161, 75) if (lane + pos) % 2 == 0 else (94, 149, 68)
+            cell = pygame.Rect(
+                offset_x + BOARD_X + pos * CELL_WIDTH,
+                offset_y + BOARD_Y + lane * CELL_HEIGHT,
+                CELL_WIDTH,
+                CELL_HEIGHT,
+            )
+            pygame.draw.rect(canvas, color, cell)
+            pygame.draw.rect(canvas, (68, 112, 55), cell, 1)
+
+    for lane, plants in enumerate(frame["plants"]):
+        for plant_name, pos in plants:
+            image = _load_image(images, plant_name)
+            if image is not None:
+                canvas.blit(
+                    image,
+                    image.get_rect(
+                        center=(
+                            offset_x + BOARD_X + (pos + 0.5) * CELL_WIDTH,
+                            offset_y + BOARD_Y + (lane + 0.5) * CELL_HEIGHT,
+                        )
+                    ),
+                )
+
+    for lane, zombies in enumerate(frame["zombies"]):
+        for zombie_name, pos, offset in zombies:
+            image = _load_image(images, zombie_name)
+            if image is not None:
+                canvas.blit(
+                    image,
+                    image.get_rect(
+                        center=(
+                            offset_x + BOARD_X + (pos + offset + 0.5) * CELL_WIDTH,
+                            offset_y + BOARD_Y + (lane + 0.5) * CELL_HEIGHT,
+                        )
+                    ),
+                )
+
+    for lane, projectiles in enumerate(frame["projectiles"]):
+        for projectile_name, pos, offset in projectiles:
+            x = int(offset_x + BOARD_X + (pos + offset + 0.5) * CELL_WIDTH)
+            y = int(offset_y + BOARD_Y + (lane + 0.5) * CELL_HEIGHT)
+            if projectile_name == "Mower":
+                pygame.draw.rect(canvas, (190, 190, 190), (x - 26, y - 10, 52, 20))
+                pygame.draw.circle(canvas, (35, 35, 35), (x - 14, y + 10), 6)
+                pygame.draw.circle(canvas, (35, 35, 35), (x + 14, y + 10), 6)
+            else:
+                pygame.draw.circle(canvas, (65, 220, 60), (x, y), 9)
+
+    cooldowns = "Plant cooldowns: " + "   ".join(
+        f"{name}: {seconds}s" for name, seconds in frame["cooldowns"].items()
+    )
+    canvas.blit(
+        small_font.render(cooldowns, True, (245, 245, 220)),
+        (offset_x + BOARD_X, offset_y + WINDOW_HEIGHT - FOOTER_HEIGHT + 14),
+    )

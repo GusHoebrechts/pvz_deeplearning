@@ -17,7 +17,7 @@ class PVZEnv_V2(gym.Env):
         self.action_space = Discrete(len(self.plant_deck) * config.N_LANES * config.LANE_LENGTH + 1)
         # self.action_space = MultiDiscrete([len(self.plant_deck), config.N_LANES, config.LANE_LENGTH]) # plant, lane, pos
         grid_size = config.N_LANES * config.LANE_LENGTH
-        total_length = (grid_size * 3) + 1 + len(self.plant_deck)
+        total_length = (grid_size * 3) + 1 + 2 * len(self.plant_deck)
         self.observation_space = Box(
             low=0, 
             high=np.finfo(np.float32).max,
@@ -89,6 +89,15 @@ class PVZEnv_V2(gym.Env):
             plant_hp_grid[cell_index] = plant.hp
         for zombie in self._scene.zombies:
             zombie_grid[zombie.lane * config.LANE_LENGTH + zombie.pos] += zombie.hp
+        cooldown_remaining = np.array([
+            np.clip(
+                self._scene.plant_cooldowns[plant_name]
+                / max(self.plant_deck[plant_name].COOLDOWN * config.FPS - 1, 1),
+                0,
+                1,
+            )
+            for plant_name in self.plant_deck
+        ])
         action_available = np.array([self._scene.plant_cooldowns[plant_name]<=0 for plant_name in self.plant_deck])
         action_available *= np.array([self._scene.sun >= self.plant_deck[plant_name].COST for plant_name in self.plant_deck])
         return np.concatenate(
@@ -97,6 +106,7 @@ class PVZEnv_V2(gym.Env):
                 plant_hp_grid,
                 zombie_grid,
                 [min(self._scene.sun, MAX_SUN)],
+                cooldown_remaining,
                 action_available,
             ]
         ).astype(np.float32)
@@ -130,14 +140,21 @@ class PVZEnv_V2(gym.Env):
             no_plant = action - len(self.plant_deck) * a
             pos = a // config.N_LANES
             lane = a - pos * config.N_LANES
-            move = Move(self._plant_names[no_plant], lane, pos)
+            plant_name = self._plant_names[no_plant]
+            move = Move(plant_name, lane, pos)
             if move.is_valid(self._scene, replace=True):
                 removed_plants = sum(
                     plant.lane == lane and plant.pos == pos and bool(plant)
                     for plant in self._scene.plants
                 )
                 move.apply_move(self._scene, replace=True)
-                return -config.PLANT_REPLACEMENT_PENALTY * removed_plants
+                reward = -config.PLANT_REPLACEMENT_PENALTY * removed_plants
+                if plant_name in ("peashooter", "potatomine") and any(
+                    zombie.lane == lane and bool(zombie)
+                    for zombie in self._scene.zombies
+                ):
+                    reward += config.PLANT_OFFENSIVE_ZOMBIE_BONUS
+                return reward
             # else:
             #     print("made a wrong move??")
             #     input()
@@ -172,4 +189,4 @@ class PVZEnv_V2(gym.Env):
         return mask
 
     def num_observations(self):
-        return 3 * config.N_LANES * config.LANE_LENGTH + len(self.plant_deck) + 1
+        return 3 * config.N_LANES * config.LANE_LENGTH + 2 * len(self.plant_deck) + 1

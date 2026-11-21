@@ -26,6 +26,7 @@ class Scene:
 
         self.score = 0 # score
         self.total_score = 0
+        self._damage_reward = 0.0
         self.lives = 1 # hp of the player (lives = 0: lossed battle)
         self._death_penalty_applied = False
 
@@ -35,6 +36,7 @@ class Scene:
 
 
     def step(self, additional_reward=0):
+        self._damage_reward = 0.0
         lives_before_step = self.lives
         zombie_entry_penalty = 0
         for plant in self.plants:
@@ -53,6 +55,7 @@ class Scene:
         self._chrono += 1
         self.score = (
             additional_reward
+            + self._damage_reward
             + config.SCORE_ALIVE_MOWER * self.grid._mowers.sum()
             - zombie_entry_penalty
         )
@@ -77,6 +80,17 @@ class Scene:
     def add_zombie(self, zombie):
         self.zombies.append(zombie)
         self.grid.zombie_entrance(zombie.lane)
+
+    def damage_zombie(self, zombie, amount):
+        damage = min(max(amount, 0), max(zombie.hp, 0))
+        if damage <= 0:
+            return 0
+
+        reward_max_hp = getattr(zombie, "_reward_max_hp", zombie.MAX_HP)
+        zombie.hp -= damage
+        if reward_max_hp > 0:
+            self._damage_reward += zombie.SCORE * damage / reward_max_hp
+        return damage
 
     def zombie_reach(self, lane):
         """ A zombie reached the end of a given lane """
@@ -104,7 +118,6 @@ class Scene:
                 alive_zombies.append(zombie)
             else:
                 self.grid.zombie_death(zombie.lane)
-                self.score += zombie.SCORE
         self.zombies = alive_zombies
 
         alive_projectiles = []

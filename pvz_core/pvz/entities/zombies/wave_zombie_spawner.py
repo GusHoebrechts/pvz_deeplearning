@@ -5,12 +5,13 @@ from .zombie_bucket import Zombie_bucket
 from .zombie_flag import Zombie_flag
 from ... import config
 import random
+from math import floor
 
-WAVE_TIMEOUT_SECONDS = 80
-FIRST_WAVE_DELAY_SECONDS = 10
-MIN_WAVE_INTERVAL_SECONDS = 30
+WAVE_TIMEOUT_SECONDS = 85
+FIRST_WAVE_DELAY_SECONDS = 50
+MIN_WAVE_INTERVAL_SECONDS = 50
 POINTS_PER_WAVE = 0
-POINTS_ADDED_PER_WAVE = 2
+POINTS_ADDED_PER_WAVE = 1.5
 ZOMBIE_POINTS = {
     Zombie: 1,
     Zombie_cone: 3,
@@ -32,7 +33,9 @@ class WaveZombieSpawner(ZombieSpawner):
         self._first_wave_timer = FIRST_WAVE_DELAY_SECONDS * config.FPS
 
     def _plan_wave(self, wave_index):
-        remaining_points = POINTS_PER_WAVE + POINTS_ADDED_PER_WAVE * wave_index
+        remaining_points = floor(
+            POINTS_PER_WAVE + POINTS_ADDED_PER_WAVE * wave_index
+        )
         zombies = []
 
         while remaining_points:

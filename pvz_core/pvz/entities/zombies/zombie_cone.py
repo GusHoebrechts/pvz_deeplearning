@@ -26,6 +26,7 @@ class Zombie_cone(Zombie):
         if self.hp<190:
             zombie = Zombie(self.lane,self.pos)
             zombie.hp = self.hp
+            zombie._reward_max_hp = zombie.hp
             zombie._offset = self._offset
             if hasattr(self, "_wave_id"):
                 zombie._wave_id = self._wave_id

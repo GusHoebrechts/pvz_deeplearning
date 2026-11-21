@@ -16,6 +16,7 @@ class Zombie(Entity):
 
         super().__init__(lane)
         self.pos = pos
+        self._reward_max_hp = self.hp
         self._attack = self.ATTACK_SPEED // config.FPS
         self._cell_length = self.WALKING_SPEED * config.FPS # How many frames to pass a cell
         self._offset = self._cell_length - 1 # Offset used to model the displacement of the zombie on its cell
