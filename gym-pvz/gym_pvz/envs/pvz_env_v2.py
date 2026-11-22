@@ -67,7 +67,7 @@ class PVZEnv_V2(gym.Env):
         self._scene.step(additional_reward=action_reward) #Minimum one step
         reward = self._scene.score
         episode_over = self._scene._chrono > config.MAX_FRAMES
-        while((not self._scene.move_available()) and (not episode_over)):
+        while (not self._move_available()) and (not episode_over):
             self._scene.step()
             episode_over = self._scene._chrono > config.MAX_FRAMES
             reward += self._scene.score
@@ -200,6 +200,20 @@ class PVZEnv_V2(gym.Env):
                     plant_index = self._plant_no[plant.__name__]
                     mask[cell_offset + plant_index + 1] = True
         return mask
+
+    def _move_available(self):
+        if not self._scene.grid.is_full():
+            return self._scene.move_available()
+
+        return any(
+            self._scene.plant_cooldowns[plant_name] <= 0
+            and self._scene.sun >= plant.COST
+            and any(
+                existing_plant.__class__ is not plant
+                for existing_plant in self._scene.plants
+            )
+            for plant_name, plant in self.plant_deck.items()
+        )
 
     def num_observations(self):
         return 5 * config.N_LANES * config.LANE_LENGTH + 2 * len(self.plant_deck) + 1

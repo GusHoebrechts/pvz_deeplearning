@@ -2,9 +2,13 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import numpy as np
+
 from gym_pvz.envs.pvz_env_v2 import PVZEnv_V2
 from pvz import Scene, config
+from a2c_masking import A2CMaskWrapper
 from pvz.entities.plants.potatomine import Potatomine
+from pvz.entities.plants.wallnut import Wallnut
 from pvz.entities.zombies.zombie import Zombie
 from pvz.entities.zombies.zombie_cone import Zombie_cone
 from train import (
@@ -162,6 +166,43 @@ class CooldownObservationTests(unittest.TestCase):
             self.assertEqual(observation.shape, env.observation_space.shape)
             self.assertEqual(len(observation), env.num_observations())
             self.assertTrue(env.observation_space.contains(observation))
+        finally:
+            env.close()
+
+
+class A2CEnvironmentTests(unittest.TestCase):
+    def test_a2c_wrapper_normalizes_pvz_observations(self):
+        env = A2CMaskWrapper(PVZEnv_V2())
+        try:
+            observation, _ = env.reset(seed=0)
+
+            self.assertTrue(env.observation_space.contains(observation))
+            sun_index = 5 * config.N_LANES * config.LANE_LENGTH
+            self.assertAlmostEqual(
+                observation[sun_index],
+                np.log1p(config.INITIAL_SUN_AMOUNT) / np.log1p(10_000),
+            )
+        finally:
+            env.close()
+
+    def test_full_board_does_not_hide_legal_replacement_actions(self):
+        env = PVZEnv_V2()
+        try:
+            scene = env._scene
+            scene.sun = config.INITIAL_SUN_AMOUNT
+            for lane in range(config.N_LANES):
+                for pos in range(config.LANE_LENGTH):
+                    scene.plants.append(Wallnut(lane, pos))
+                    scene.grid.add_obj(lane, pos)
+
+            _, _, terminated, _, _ = env.step(4)
+
+            self.assertFalse(terminated)
+            self.assertLess(
+                scene._chrono,
+                config.FIRST_WAVE_DELAY_SECONDS * config.FPS,
+            )
+            self.assertTrue(env.mask_available_actions()[1:].any())
         finally:
             env.close()
 

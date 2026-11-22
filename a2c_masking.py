@@ -220,10 +220,76 @@ class MaskedA2C(A2C):
 
 
 class A2CMaskWrapper(gym.Wrapper):
-    """Expose the environment's legal-action mask to masked A2C."""
+    """Normalize PvZ observations and expose legal-action masks to A2C."""
 
     def __init__(self, env):
         super().__init__(env)
+        base_env = self.env.unwrapped
+        self._pvz_observation_layout = None
+
+        if hasattr(base_env, "plant_deck"):
+            n_plants = len(base_env.plant_deck)
+            observation_size = self.observation_space.shape[0]
+            grid_size = (observation_size - 1 - 2 * n_plants) // 5
+            if (
+                grid_size <= 0
+                or 5 * grid_size + 1 + 2 * n_plants != observation_size
+            ):
+                raise ValueError("Unexpected PvZ observation layout.")
+
+            max_plant_hp = max(
+                plant.MAX_HP for plant in base_env.plant_deck.values()
+            )
+            if max_plant_hp <= 0:
+                raise ValueError("PvZ plant hit points must be positive.")
+
+            self._pvz_observation_layout = (
+                grid_size,
+                n_plants,
+                max_plant_hp,
+            )
+            self.observation_space = spaces.Box(
+                low=0.0,
+                high=1.0,
+                shape=self.observation_space.shape,
+                dtype=np.float32,
+            )
+
+    def _normalize_observation(self, observation):
+        if self._pvz_observation_layout is None:
+            return observation
+
+        grid_size, n_plants, max_plant_hp = self._pvz_observation_layout
+        normalized = np.asarray(observation, dtype=np.float32).copy()
+        normalized[:grid_size] /= n_plants
+        normalized[grid_size : 2 * grid_size] /= max_plant_hp
+        normalized[2 * grid_size : 3 * grid_size] = (
+            np.log1p(normalized[2 * grid_size : 3 * grid_size])
+            / np.log1p(10_000)
+        )
+        normalized[3 * grid_size : 4 * grid_size] = (
+            np.log1p(normalized[3 * grid_size : 4 * grid_size])
+            / np.log1p(10)
+        )
+        sun_index = 5 * grid_size
+        normalized[sun_index] = (
+            np.log1p(normalized[sun_index]) / np.log1p(10_000)
+        )
+        return np.clip(normalized, 0.0, 1.0)
+
+    def reset(self, *, seed=None, options=None):
+        observation, info = self.env.reset(seed=seed, options=options)
+        return self._normalize_observation(observation), info
+
+    def step(self, action):
+        observation, reward, terminated, truncated, info = self.env.step(action)
+        return (
+            self._normalize_observation(observation),
+            reward,
+            terminated,
+            truncated,
+            info,
+        )
 
     def action_masks(self) -> np.ndarray:
         return np.asarray(
